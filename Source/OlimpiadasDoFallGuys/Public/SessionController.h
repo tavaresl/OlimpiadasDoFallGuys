@@ -8,6 +8,7 @@
 #include "SessionController.generated.h"
 
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnGameSessionCreatedDelegate, FName, SessionName);
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class OLIMPIADASDOFALLGUYS_API USessionController : public UActorComponent
 {
@@ -29,6 +30,10 @@ public:
 
 protected:
 	void OnCreateSessionComplete(FName SessionName, bool bWasSuccessful);
+
+	UFUNCTION()
+	void HandleGameSessionCreatedEvent() const;
+	virtual void NotifyGameSessionCreated();
 	
 	UFUNCTION(BlueprintCallable)
 	void CreateGameSession() const;
@@ -39,14 +44,14 @@ protected:
 	//UFUNCTION(BlueprintCallable)
 	//void ListGameSessions();
 
-	private:
+private:
+	FName CreatedSessionName;
 	TSharedPtr<FOnlineSessionSearchResult> SessionSearchResult;
 
 	FOnCreateSessionCompleteDelegate CreateSessionCompleteDelegate;
 	//FOnJoinSessionCompleteDelegate JoinSessionCompleteDelegate;
 	//FOnFindSessionsCompleteDelegate FindSessionsCompleteDelegate;
 
-
-
-		
+	UPROPERTY(BlueprintAssignable, Category="GameSession")
+	FOnGameSessionCreatedDelegate OnGameSessionCreatedDelegate;
 };

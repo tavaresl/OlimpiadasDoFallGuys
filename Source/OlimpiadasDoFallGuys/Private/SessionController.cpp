@@ -5,7 +5,6 @@
 
 #include "OnlineSessionSettings.h"
 #include "OnlineSubsystem.h"
-#include "SessionManagerController.h"
 
 // Sets default values for this component's properties
 USessionController::USessionController()
@@ -96,6 +95,8 @@ void USessionController::OnCreateSessionComplete(FName SessionName, bool bWasSuc
 	{
 		if (GEngine)
 		{
+			CreatedSessionName = SessionName;
+			NotifyGameSessionCreated();
 			GEngine->AddOnScreenDebugMessage(-1,
 				15.f,
 				FColor::Blue,
@@ -112,5 +113,15 @@ void USessionController::OnCreateSessionComplete(FName SessionName, bool bWasSuc
 				FString::Printf(TEXT("Failed to create a new session.")));
 		}
 	}
+}
+
+void USessionController::HandleGameSessionCreatedEvent() const
+{
+	OnGameSessionCreatedDelegate.Broadcast(CreatedSessionName);
+}
+
+void USessionController::NotifyGameSessionCreated()
+{
+	HandleGameSessionCreatedEvent();
 }
 
