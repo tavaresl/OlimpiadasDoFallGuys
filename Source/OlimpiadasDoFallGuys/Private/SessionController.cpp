@@ -9,7 +9,8 @@
 // Sets default values for this component's properties
 USessionController::USessionController()
 	:
-	CreateSessionCompleteDelegate(FOnCreateSessionCompleteDelegate::CreateUObject(this, &USessionController::OnCreateSessionComplete))
+	CreateSessionCompleteDelegate(FOnCreateSessionCompleteDelegate::CreateUObject(this, &USessionController::OnCreateSessionComplete)),
+	FindSessionsCompleteDelegate(FOnFindSessionsCompleteDelegate::CreateUObject(this, &USessionController::OnFindSessionsComplete))
 {
 	// Set this component to be initialized when the game starts, and to be ticked every frame.  You can turn these features
 	// off to improve performance if you don't need them.
@@ -89,6 +90,24 @@ void USessionController::CreateGameSession() const
 	OnlineSessionInterface->CreateSession(*LocalPlayer->GetPreferredUniqueNetId(), NAME_GameSession, *SessionSettings);
 }
 
+void USessionController::ListGameSessions()
+{
+	if (!OnlineSessionInterface.IsValid())
+		return;
+
+	SessionSearch = MakeShareable(new FOnlineSessionSearch);
+
+	OnlineSessionInterface->AddOnFindSessionsCompleteDelegate_Handle(FindSessionsCompleteDelegate);
+
+	SessionSearch->bIsLanQuery = false;
+	SessionSearch->MaxSearchResults = 10000;
+	SessionSearch->QuerySettings.Set(SEARCH_PRESENCE, true, EOnlineComparisonOp::Equals);
+
+	const ULocalPlayer* LocalPlayer = GetWorld()->GetFirstLocalPlayerFromController();
+
+	OnlineSessionInterface->FindSessions(*LocalPlayer->GetPreferredUniqueNetId(), SessionSearch.ToSharedRef());
+}
+
 void USessionController::OnCreateSessionComplete(FName SessionName, bool bWasSuccessful)
 {
 	if (bWasSuccessful)
@@ -115,6 +134,41 @@ void USessionController::OnCreateSessionComplete(FName SessionName, bool bWasSuc
 	}
 }
 
+void USessionController::OnFindSessionsComplete(bool bWasSuccessful)
+{
+	if (!OnlineSessionInterface.IsValid())
+		return;
+
+	if (SessionSearch->SearchResults.Num() == 0)
+	{
+		if (GEngine)
+			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, FString::Printf(L"Cannot find any online session"));
+
+		return;
+	}
+
+	for (FOnlineSessionSearchResult Result : SessionSearch->SearchResults)
+	{
+		FString MatchType;
+
+		Result.Session.SessionSettings.Get(FName("MatchType"), MatchType);
+		
+		FSearchResult_OLD SearchResult = {
+			Result.GetSessionIdStr(),
+			Result.Session.OwningUserName,
+			Result
+		};
+
+		if (MatchType == FString("FreeForAll"))
+		{
+			SessionSearchResults.Add(SearchResult);
+			NotifyGameSessionFound(SearchResult.Id);
+		}
+	}
+
+	NotifyGameSessionsFound(bWasSuccessful);
+}
+
 void USessionController::HandleGameSessionCreatedEvent() const
 {
 	OnGameSessionCreatedDelegate.Broadcast(CreatedSessionName);
@@ -123,5 +177,25 @@ void USessionController::HandleGameSessionCreatedEvent() const
 void USessionController::NotifyGameSessionCreated()
 {
 	HandleGameSessionCreatedEvent();
+}
+
+void USessionController::HandleGameSessionsFoundEvent(bool bWasSuccessful) const
+{
+	OnGameSessionsFoundDelegate.Broadcast(bWasSuccessful);
+}
+
+void USessionController::NotifyGameSessionsFound(bool bWasSuccessful)
+{
+	HandleGameSessionCreatedEvent();
+}
+
+void USessionController::HandleGameSessionFoundEvent(FString SessionId) const
+{
+	OnGameSessionFoundDelegate.Broadcast(SessionId);
+}
+
+void USessionController::NotifyGameSessionFound(FString SessionId)
+{
+	HandleGameSessionFoundEvent(SessionId);
 }
 
