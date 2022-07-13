@@ -73,6 +73,7 @@ public:
 
 private:
 	TSharedPtr<class IOnlineSession, ESPMode::ThreadSafe> OnlineSessionInterface;
+	TSharedPtr<FOnlineSessionSearch> SessionSearch;
 
 	void OnCreateSessionComplete(FName SessionName, bool bWasSuccessful) const;
 	void OnFindSessionsComplete(bool bWasSuccessful);
